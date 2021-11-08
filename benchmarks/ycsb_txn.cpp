@@ -15,13 +15,17 @@
 #include "row_mvcc.h"
 #include "mem_alloc.h"
 #include "query.h"
+
+#include <iostream> // heather: debug using print
+
 void ycsb_txn_man::init(thread_t * h_thd, workload * h_wl, uint64_t thd_id) {
     txn_man::init(h_thd, h_wl, thd_id);
     _wl = (ycsb_wl *) h_wl;
 }
 
 RC ycsb_txn_man::run_txn(base_query * query) {
-    RC rc;
+    RC rc = RCOK; // heather: initialize rc with a non-Abort value
+    bool aborted = false; // heather: add this variable for WARMUP_NO_WAIT
     ycsb_query * m_query = (ycsb_query *) query;
     ycsb_wl * wl = (ycsb_wl *) h_wl;
     itemid_t * m_item = NULL;
@@ -59,7 +63,26 @@ RC ycsb_txn_man::run_txn(base_query * query) {
             row_t * row_local;
             access_t type = req->rtype;
             //printf("[txn-%lu] start %d requests at key %lu\n", get_txn_id(), rid, req->key);
+
+            // heather: modify the following code block
+#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
+            RC rc_return = WAIT;
+            row_local = get_row(row, type, &rc_return); // heather: add a param called rc_return to get the rc from get_row
+            if (aborted == true || rc_return == Abort) { // if aborted == true, has aborted in some previous round in for-loop
+                aborted = true;
+                // std::cout <<"ycsb_txn.cpp: rc == Abort"<<endl;
+                // TODO: cache data and manager here
+                char * data = row->get_data();
+                volatile Row_lock * manager = row->manager;
+
+                volatile char fval = data[0]; // trying to cache data
+                // std::cout <<"ycsb_txn.cpp: data="<<data<<endl;
+                // __builtin_prefetch((const void*)(prefetch_address),0,0);
+                break; // leave while loop, continue for loop;
+            }  
+#else
             row_local = get_row(row, type);
+#endif
             if (row_local == NULL) {
                 rc = Abort;
                 goto final;
@@ -106,6 +129,12 @@ RC ycsb_txn_man::run_txn(base_query * query) {
         }
     }
     rc = RCOK;
+#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
+    if (aborted) {
+        rc = Abort;
+        this->warmed_up = true;
+    }
+#endif   
 final:
     rc = finish(rc);
     return rc;

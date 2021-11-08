@@ -132,6 +132,11 @@ class txn_man
     int volatile 	    ready_part;
     // [TICTOC]
     bool                _write_copy_ptr;
+    // [NO_WAIT]
+#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
+    bool warmed_up; // heather: add warmed_up. If true, it has been warmed up before.
+#endif
+
 #if CC_ALG == TICTOC
     bool			    _atomic_timestamp;
     ts_t 			    _max_wts;
@@ -244,7 +249,14 @@ class txn_man
     RC                  retire_row(int access_cnt);
 #endif
     // [VLL]
+
+    // heather: modify the following code block
+#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
+    row_t * 		    get_row(row_t * row, access_t type, RC *rc_return);
+#else
     row_t * 		    get_row(row_t * row, access_t type);
+#endif
+
     itemid_t *	        index_read(INDEX * index, idx_key_t key, int part_id);
     void 			    index_read(INDEX * index, idx_key_t key, int part_id,
                                    itemid_t *& item);

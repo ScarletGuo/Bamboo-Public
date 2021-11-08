@@ -199,6 +199,15 @@ RC thread_t::run() {
             INC_STATS(get_thd_id(), commit_latency, timespan);
             INC_STATS(get_thd_id(), latency, endtime - txn_starttime);
             INC_STATS(get_thd_id(), txn_cnt, 1);
+#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT // heather: add warmed_up_commit_latency and unwarmed_up_commit_latency. 
+			if (m_txn->warmed_up) {
+				INC_STATS(get_thd_id(), warmed_up_commit_latency, timespan);
+				INC_STATS(get_thd_id(), warmed_up_txn_cnt, 1);
+			} else {
+				INC_STATS(get_thd_id(), unwarmed_up_commit_latency, timespan);
+				INC_STATS(get_thd_id(), unwarmed_up_txn_cnt, 1);
+			}
+#endif
 #if WORKLOAD == YCSB
             if (unlikely(g_long_txn_ratio > 0)) {
                 if ( ((ycsb_query *) m_query)->request_cnt > REQ_PER_QUERY)

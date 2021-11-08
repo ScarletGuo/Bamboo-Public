@@ -15,7 +15,7 @@
   if (retire_row(access_cnt) == Abort) \
     return finish(Abort); \
 }
-
+#if !((CC_ALG == NO_WAIT) && WARMUP_NO_WAIT) // heather: only compile ycsb not tpcc
 void tpcc_txn_man::init(thread_t * h_thd, workload * h_wl, uint64_t thd_id) {
   txn_man::init(h_thd, h_wl, thd_id);
   _wl = (tpcc_wl *) h_wl;
@@ -1016,3 +1016,4 @@ RC
 tpcc_txn_man::run_stock_level(tpcc_query * query) {
   return RCOK;
 }
+#endif

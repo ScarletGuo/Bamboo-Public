@@ -42,6 +42,9 @@ Options to change/pass configuration:
 - Option 2: directly copy config-std.h to config.h and modify config.h. Then compile using ```make -j``` and execute through ```./rundb ```
 
 
+pip install matplotlib
+sudo apt-get install python-tk
+
 
 
 

@@ -257,6 +257,13 @@ RC row_t::get_row(access_t type, txn_man * txn, row_t *& row, Access * access) {
   #endif
   if (rc == RCOK) {
   } else if (rc == Abort) {
+
+    // heather: add the following code block - return row data if failed getting lock for NO_WAIT
+#if CC_ALG == NO_WAIT && WARMUP_NO_WAIT
+    row = this;
+    return rc;
+#endif
+
     row = NULL;
     return rc;
   } else if (rc == WAIT) {

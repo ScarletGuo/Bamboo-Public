@@ -56,7 +56,7 @@ def run(test = '', job=None, numa=True):
 	if test == 'conflict':
 		app_flags = "-Ac -t4"
         if numa:
-	    os.system("numactl --interleave all ./rundb %s | tee temp.out" % app_flags)
+	        os.system("numactl --interleave all ./rundb %s | tee temp.out" % app_flags)
         else:
             os.system("./rundb %s | tee temp.out" % app_flags)
 	
@@ -67,13 +67,13 @@ def parse_output(job):
     output = open("temp.out")
     success = False
     for line in output:
-            line = line.strip()
-            if "[summary]" in line:
-                    success = True
-                    for token in line.strip().split('[summary]')[-1].split(','):
-                            key, val = token.strip().split('=')
-                            job[key] = val
-                    break
+        line = line.strip()
+        if "[summary]" in line:
+            success = True
+            for token in line.strip().split('[summary]')[-1].split(','):
+                key, val = token.strip().split('=')
+                job[key] = val
+            break
     if success:
         output.close()
         os.system("rm -f temp.out")

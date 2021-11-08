@@ -1,0 +1,17 @@
+{
+	"THREAD_CNT": 20,
+	"ABORT_PENALTY": 10000,
+	"LATCH": "LH_MCSLOCK",
+
+	"CC_ALG": "NO_WAIT",
+	"WARMUP_NO_WAIT": "false",
+
+	"WORKLOAD": "YCSB",
+	"SYNTHETIC_YCSB": "false",
+	"ZIPF_THETA": 0.9,
+	"READ_PERC": 0.5,
+
+	"UNSET_NUMA": "false",
+	"COMPILE_ONLY": "false",
+	"NDEBUG": "true"
+}

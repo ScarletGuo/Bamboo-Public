@@ -97,6 +97,21 @@ void Stats::print() {
   }
   total_latency = total_latency / total_txn_cnt;
   total_commit_latency = total_commit_latency / total_txn_cnt;
+
+  // heather: add this code block
+#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
+  if (total_warmed_up_txn_cnt == 0) {
+    total_warmed_up_commit_latency = 0;
+  } else {
+    total_warmed_up_commit_latency = total_warmed_up_commit_latency / total_warmed_up_txn_cnt;
+  }
+  if (total_unwarmed_up_txn_cnt == 0) {
+    total_unwarmed_up_commit_latency = 0;
+  } else {
+    total_unwarmed_up_commit_latency = total_unwarmed_up_commit_latency / total_unwarmed_up_txn_cnt;
+  }
+#endif
+
   total_time_man = total_time_man - total_time_wait;
   if (output_file != NULL) {
     ofstream outf(output_file);

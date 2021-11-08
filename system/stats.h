@@ -10,6 +10,8 @@
   x(double, time_release_latch) x(double, time_release_cs) x(double, time_semaphore_cs) \
   x(double, time_commit) y(uint64_t, time_ts_alloc) y(uint64_t, wait_cnt) \
   y(uint64_t, latency) y(uint64_t, commit_latency) y(uint64_t, abort_length) \
+  y(uint64_t, warmed_up_commit_latency) y(uint64_t, unwarmed_up_commit_latency) \
+  y(uint64_t, warmed_up_txn_cnt) y(uint64_t, unwarmed_up_txn_cnt) \
   y(uint64_t, cascading_abort_times) z(uint64_t, max_abort_length) \
   y(uint64_t, txn_cnt_long) y(uint64_t, abort_cnt_long) y(uint64_t, cascading_abort_cnt) \
   y(uint64_t, lock_acquire_cnt) y(uint64_t, lock_directly_cnt) \

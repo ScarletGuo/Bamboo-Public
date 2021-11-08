@@ -12,7 +12,7 @@
 #include "txn.h"
 #include "mem_alloc.h"
 #include "tpcc_const.h"
-
+#if !((CC_ALG == NO_WAIT) && WARMUP_NO_WAIT) // heather: only compile ycsb not tpcc
 RC tpcc_wl::init() {
 	workload::init();
 	string path = "./benchmarks/";
@@ -599,4 +599,5 @@ tpcc_wl::get_cedges(TPCCTxnType txn_type, int piece_id) {
       return NULL;
     return sc_graph[txn_type][piece_id];
   }
+#endif
 #endif

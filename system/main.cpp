@@ -33,6 +33,11 @@ int main(int argc, char* argv[])
 	printf("WOUND_WAIT\n");
 #elif CC_ALG == NO_WAIT
 	printf("NO_WAIT\n");
+#if WARMUP_NO_WAIT
+	printf("WARMUP\n");
+#else
+	printf("NO WARMUP\n");
+#endif 
 #elif CC_ALG == WAIT_DIE
 	printf("WAIT_DIE\n");
 #elif CC_ALG == BAMBOO

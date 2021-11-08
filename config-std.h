@@ -5,7 +5,7 @@
 // Simulation + Hardware
 /***********************************************/
 #define TERMINATE_BY_COUNT         true
-#define THREAD_CNT					20
+#define THREAD_CNT					32
 #define PART_CNT					1
 // each transaction only accesses 1 virtual partition. But the lock/ts manager and index are not aware of such partitioning. VIRTUAL_PART_CNT describes the request distribution and is only used to generate queries. For HSTORE, VIRTUAL_PART_CNT should be the same as PART_CNT.
 #define VIRTUAL_PART_CNT			1
@@ -40,11 +40,14 @@
 /***********************************************/
 // WAIT_DIE, NO_WAIT, DL_DETECT, TIMESTAMP, MVCC, HEKATON, HSTORE, OCC, VLL, TICTOC, SILO
 // TODO TIMESTAMP does not work at this moment
-#define CC_ALG                      BAMBOO
+#define CC_ALG                      NO_WAIT  
+// heather: add WARMUP_NO_WAIT - warm up cache for NO_WAIT or not: true, false
+#define WARMUP_NO_WAIT						true
+
 #define ISOLATION_LEVEL 			SERIALIZABLE
 
 // latch options
-#define LATCH					    LH_SPINLOCK
+#define LATCH					    LH_MCSLOCK
 
 // all transactions acquire tuples according to the primary key order.
 #define KEY_ORDER					false
@@ -136,20 +139,20 @@
 #define MAX_FIELD_SIZE                          50
 // ==== [YCSB] ====
 #define INIT_PARALLELISM			40
-#define SYNTH_TABLE_SIZE 			(1024 * 5)
+#define SYNTH_TABLE_SIZE 			(1024 * 1024 * 10)
 #define ZIPF_THETA 					0.9
-#define READ_PERC 					1
+#define READ_PERC 					0.5
 #define WRITE_PERC 					1  // if want no scan, write + read >= 1
 #define SCAN_PERC 					0
 #define SCAN_LEN					20
 #define PART_PER_TXN 				1
 #define PERC_MULTI_PART				1
-#define REQ_PER_QUERY				16
+#define REQ_PER_QUERY				16 // heather: num of records the transec touches
 #define LONG_TXN_RATIO			        0
 #define LONG_TXN_READ_RATIO			0.5
 #define FIELD_PER_TUPLE				10
 // ==== [YCSB-synthetic] ====
-#define SYNTHETIC_YCSB              true
+#define SYNTHETIC_YCSB              false
 #define POS_HS                      TOP
 #define SPECIFIED_RATIO             0
 #define FLIP_RATIO                  0
