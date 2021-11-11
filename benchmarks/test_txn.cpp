@@ -25,14 +25,7 @@ RC TestTxnMan::testReadwrite(int access_num) {
 
 	m_item = index_read(_wl->the_index, 0, 0);
 	row_t * row = ((row_t *)m_item->location);
-
-	// 	heather: modify following code block 
-#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
-		RC rc_return = WAIT;
-		row_local = get_row(row, WR, &rc_return);
-#else
-		row_local = get_row(row, WR);
-#endif
+	row_local = get_row(row, WR);
 
 	if (access_num == 0) {			
 		char str[] = "hello";
@@ -77,14 +70,7 @@ TestTxnMan::testConflict(int access_num)
 		m_item = index_read(_wl->the_index, key, 0);
 		row_t * row = ((row_t *)m_item->location);
 		row_t * row_local; 
-	
-		// heather: modify following code block 
-#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
-		RC rc_return = WAIT;
-		row_local = get_row(row, WR, &rc_return);
-#else
 		row_local = get_row(row, WR);
-#endif
 
 		if (row_local) {
 			char str[] = "hello";

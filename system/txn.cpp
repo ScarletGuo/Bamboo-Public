@@ -174,9 +174,9 @@ void txn_man::cleanup(RC rc) {
             accesses[rid]->orig_row = NULL;
 #elif CC_ALG == DL_DETECT || CC_ALG == NO_WAIT || CC_ALG == WAIT_DIE
             if (ROLL_BACK && type == XP) {
-                orig_r->return_row(type, accesses[rid]->orig_data, accesses[rid]->lock_entry);
+                orig_r->return_row(type, accesses[rid]->orig_data, accesses[rid]->lock_entry); // heather: lock_release
             } else {
-                orig_r->return_row(type, accesses[rid]->data, accesses[rid]->lock_entry);
+                orig_r->return_row(type, accesses[rid]->data, accesses[rid]->lock_entry); // heather: lock_release
             }
 #else
             orig_r->return_row(type, this, accesses[rid]->data);
@@ -228,170 +228,6 @@ void txn_man::assign_lock_entry(Access * access) {
 }
 #endif
 
-#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
-
-row_t * txn_man::get_row(row_t * row, access_t type, RC *rc_return) {
-    if (CC_ALG == HSTORE)
-        return row;
-    uint64_t starttime = get_sys_clock();
-    RC rc = RCOK;
-    if (accesses[row_cnt] == NULL) {
-        assert(row_cnt < MAX_ROW_PER_TXN);
-        Access *access = (Access *) _mm_malloc(sizeof(Access), 64);
-#if COMMUTATIVE_OPS
-        // init
-    access->com_op = COM_NONE;
-#endif
-        accesses[row_cnt] = access;
-#if (CC_ALG == SILO || CC_ALG == TICTOC)
-        access->data = (row_t *) _mm_malloc(sizeof(row_t), 64);
-        access->data->init(MAX_TUPLE_SIZE);
-        access->orig_data = (row_t *) _mm_malloc(sizeof(row_t), 64);
-        access->orig_data->init(MAX_TUPLE_SIZE);
-#elif (CC_ALG == IC3)
-        access->data = (row_t *) _mm_malloc(sizeof(row_t), 64);
-    access->data->init(MAX_TUPLE_SIZE);
-    #if IC3_FIELD_LOCKING
-    access->tids = (ts_t *) _mm_malloc(sizeof(ts_t) * MAX_FIELD_SIZE, 64);
-    #else
-    access->tid = 0;
-    #endif
-#elif (CC_ALG == WOUND_WAIT)
-    // allocate lock entry as well
-    assign_lock_entry(access);
-    // for ww and bb, data is a local copy of original row for txn to work on
-    access->data = (row_t *) _mm_malloc(sizeof(row_t), 64);
-    access->data->init(MAX_TUPLE_SIZE);
-#elif (CC_ALG == BAMBOO)
-    // allocate lock entry as well
-    assign_lock_entry(access);
-    // data is for making local changes before added to retired
-    access->data = (row_t *) _mm_malloc(sizeof(row_t), 64);
-    access->data->init(MAX_TUPLE_SIZE);
-    access->data->table = row->get_table();
-    // orig data is for rollback
-    access->orig_data = (row_t *) _mm_malloc(sizeof(row_t), 64);
-    access->orig_data->init(MAX_TUPLE_SIZE);
-    access->orig_data->table = row->get_table();
-#elif (CC_ALG == DL_DETECT || (CC_ALG == NO_WAIT) || (CC_ALG == WAIT_DIE))
-    // allocate lock entry as well
-    assign_lock_entry(access);
-    access->orig_data = (row_t *) _mm_malloc(sizeof(row_t), 64);
-    access->orig_data->init(MAX_TUPLE_SIZE);
-#endif
-        num_accesses_alloc++;
-    }
-    //printf("txn-%lu access(%p) row %p at access[%d]\n", txn_id, accesses[row_cnt], row , row_cnt);
-#if (CC_ALG == WOUND_WAIT) || (CC_ALG == BAMBOO)
-    rc = row->get_row(type, this, accesses[ row_cnt ]->orig_row,
-                      accesses[row_cnt]);
-    if (rc == Abort) {
-        accesses[row_cnt]->orig_row = NULL;
-        return NULL;
-    }
-#elif CC_ALG == DL_DETECT || (CC_ALG == NO_WAIT) || (CC_ALG == WAIT_DIE)
-    rc = row->get_row(type, this, accesses[ row_cnt ]->data, accesses[row_cnt]);
-
-    // heather: the following code block is modified from the original get_row method    
-    if (rc == Abort){
-        *rc_return = rc;
-        return accesses[row_cnt]->data;
-        // return NULL;
-    }
-
-    accesses[row_cnt]->orig_row = row;
-#elif CC_ALG == IC3
-  assert(rc == RCOK);
-  // re-initialize read/write sets for the tuple.
-  accesses[row_cnt]->rd_accesses = 0;
-  accesses[row_cnt]->wr_accesses = 0;
-  accesses[row_cnt]->lk_accesses = 0;
-  accesses[row_cnt]->data->init_accesses(accesses[row_cnt]);
-  accesses[row_cnt]->data->manager = row->manager;
-  accesses[row_cnt]->data->table = row->get_table();
-  accesses[row_cnt]->data->orig = row;
-  accesses[row_cnt]->orig_row = row;
-  #if !IC3_FIELD_LOCKING
-  row->get_row(type, this, row, accesses[row_cnt]);
-  #endif
-#else
-  rc = row->get_row(type, this, accesses[ row_cnt ]->data, accesses[row_cnt]);
-  if (rc == Abort)
-    return NULL;
-  accesses[row_cnt]->orig_row = row;
-#endif
-
-#if (CC_ALG == BAMBOO && BB_OPT_RAW)
-    if (rc == FINISH) {
-    // RAW optimization
-    accesses[row_cnt]->data->table = row->get_table();
-  }
-#endif
-
-    accesses[row_cnt]->type = type;
-#if CC_ALG == TICTOC
-    accesses[row_cnt]->wts = last_wts;
-    accesses[row_cnt]->rts = last_rts;
-#elif CC_ALG == SILO
-    accesses[row_cnt]->tid = last_tid;
-#elif CC_ALG == HEKATON
-  accesses[row_cnt]->history_entry = history_entry;
-#endif
-
-    if (type == WR) {
-#if CC_ALG == WOUND_WAIT
-        // make local copy to work on
-        accesses[row_cnt]->data->table = row->get_table();
-        accesses[row_cnt]->data->copy(row);
-#elif CC_ALG == BAMBOO
-        // make local copy to work on
-    accesses[row_cnt]->data->table = row->get_table();
-    accesses[row_cnt]->data->copy(row);
-    // make copy to rollback
-    accesses[row_cnt]->orig_data->table = row->get_table();
-    accesses[row_cnt]->orig_data->copy(row);
-#elif ROLL_BACK && (CC_ALG == DL_DETECT || CC_ALG == NO_WAIT || CC_ALG == WAIT_DIE)
-    accesses[row_cnt]->orig_data->table = row->get_table();
-    accesses[row_cnt]->orig_data->copy(row);
-#endif
-    }
-
-#if (CC_ALG == NO_WAIT || CC_ALG == DL_DETECT) && ISOLATION_LEVEL == REPEATABLE_READ
-    if (type == RD)
-        row->return_row(type, accesses[ row_cnt ]->data, accesses[row_cnt]->lock_entry);
-#endif
-
-    row_cnt ++;
-    if (type == WR) {
-        wr_cnt++;
-    }
-
-    uint64_t timespan = get_sys_clock() - starttime;
-    INC_TMP_STATS(get_thd_id(), time_man, timespan);
-
-#if  (CC_ALG == WOUND_WAIT)
-    if (type == WR)
-        return accesses[row_cnt - 1]->data;
-    else
-        return accesses[row_cnt - 1]->orig_row;
-#elif CC_ALG == BAMBOO
-    //printf("txn %lu got row %p at %d-th access %p\n", get_txn_id(), (void *)accesses[row_cnt - 1]->orig_row, row_cnt - 1, (void *)accesses[row_cnt - 1]);
-  if (type == WR)
-    return accesses[row_cnt - 1]->data;
-  else {
-    if (rc != FINISH)
-      return accesses[row_cnt - 1]->orig_row;
-    else
-      return accesses[row_cnt - 1]->data; // RAW
-  }
-#elif CC_ALG == IC3
-  return accesses[row_cnt - 1]->data;
-#else
-  return accesses[row_cnt - 1]->data;
-#endif
-}
-
-#else
 row_t * txn_man::get_row(row_t * row, access_t type) {
     if (CC_ALG == HSTORE)
         return row;
@@ -546,7 +382,7 @@ row_t * txn_man::get_row(row_t * row, access_t type) {
   return accesses[row_cnt - 1]->data;
 #endif
 }
-#endif
+
 
 void txn_man::insert_row(row_t * row, table_t * table) {
     if (CC_ALG == HSTORE)

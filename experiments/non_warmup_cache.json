@@ -11,7 +11,7 @@
 	"ZIPF_THETA": 0.9,
 	"READ_PERC": 0.5,
 
-	"UNSET_NUMA": "false",
+	"UNSET_NUMA": "true",
 	"COMPILE_ONLY": "false",
 	"NDEBUG": "true"
 }

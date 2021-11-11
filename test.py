@@ -55,7 +55,7 @@ def run(test = '', job=None, numa=True):
 		app_flags = "-Ar -t1"
 	if test == 'conflict':
 		app_flags = "-Ac -t4"
-        if numa:
+        if numa: # heather: uniform memory
 	        os.system("numactl --interleave all ./rundb %s | tee temp.out" % app_flags)
         else:
             os.system("./rundb %s | tee temp.out" % app_flags)

@@ -37,6 +37,9 @@ class ycsb_txn_man : public txn_man
 public:
 	void init(thread_t * h_thd, workload * h_wl, uint64_t part_id); 
 	RC run_txn(base_query * query);
+#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
+	void txn_warmup(base_query * query, uint32_t aborted_rid);
+#endif
 private:
 #if CC_ALG != BAMBOO
 	uint64_t row_cnt;

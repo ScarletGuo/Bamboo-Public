@@ -39,41 +39,44 @@ if __name__ == "__main__":
     dname_non_warmup="ycsb_non_warmup_cache"
     dname_warmup="ycsb_warmup_cache"
     dname_warmup_txn="ycsb_warmup_cache_txn_commit_latency"
-    metric_name = "decomposed_commit_latency"
+    metric_name = "throughput" # throughput, commit_latency
     pic_num = 0
-    for READ_PERC in [0.2, 0.4]:
-        for ZIPF_THETA in [0.9]: #, 0.999, 1.3, 1.5, 2.0]:
+    plot_option = 1 # (1: for three curves. (2: for the decomposed_commit_latency
+
+    for READ_PERC in [0.5]:
+        for ZIPF_THETA in [0.9]: # [0.3, 0.5, 0.7, 0.9, 0.999]:
             fig = plt.figure(pic_num)
             pic_num += 1
+            
+            if plot_option == 1:
+                # for three curves: nowait warm up, nowait not warm up, silo
+                nowait_warmup_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, metric_name)
+                nowait_nowarmup_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_non_warmup, metric_name)
+                silo_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "SILO", dname_non_warmup, metric_name)
+                plt.plot(THREAD_CNT_nparray, nowait_warmup_y, label='nowait_warmup')
+                plt.plot(THREAD_CNT_nparray, nowait_nowarmup_y, label='nowait_nowarmup')
+                plt.plot(THREAD_CNT_nparray, silo_y, label='silo')
+            else:
+                # for the decomposed_commit_latency
+                nowait_warmup_txn_commit_latency_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, "warmed_up_commit_latency")
+                nowait_nowarmup_txn_commit_latency_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, "unwarmed_up_commit_latency")
+                plt.plot(THREAD_CNT_nparray, nowait_warmup_txn_commit_latency_y, label='warmed_up_txn_commit_latency')
+                plt.plot(THREAD_CNT_nparray, nowait_nowarmup_txn_commit_latency_y, label='unwarmed_up_txn_commit_latency')
+                # print txn_cnt
+                warmed_up_txn_cnt = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, "warmed_up_txn_cnt")
+                unwarmed_up_txn_cnt = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, "unwarmed_up_txn_cnt")
+                print("READ_PERC=",str(READ_PERC),", ZIPF_THETA=",str(ZIPF_THETA))
+                print("warmed_up_txn_cnt=",warmed_up_txn_cnt)
+                print("unwarmed_up_txn_cnt=",unwarmed_up_txn_cnt)
+                print("\n")
 
-            # for 3 curves: nowait warm up, nowait not warm up, silo
-            # nowait_warmup_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup, metric_name)
-            # nowait_nowarmup_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_non_warmup, metric_name)
-            # silo_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "SILO", dname_non_warmup, metric_name)
-            # plt.plot(THREAD_CNT_nparray, nowait_warmup_y, label='nowait_warmup')
-            # plt.plot(THREAD_CNT_nparray, nowait_nowarmup_y, label='nowait_nowarmup')
-            # plt.plot(THREAD_CNT_nparray, silo_y, label='silo')
-
-            # for the decomposed_commit_latency
-            nowait_warmup_txn_commit_latency_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, "warmed_up_commit_latency")
-            nowait_nowarmup_txn_commit_latency_y = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, "unwarmed_up_commit_latency")
-
-            warmed_up_txn_cnt = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, "warmed_up_txn_cnt")
-            unwarmed_up_txn_cnt = getResult(ZIPF_THETA, READ_PERC, THREAD_CNT_list, "NO_WAIT", dname_warmup_txn, "unwarmed_up_txn_cnt")
-            plt.plot(THREAD_CNT_nparray, nowait_warmup_txn_commit_latency_y, label='warmed_up_txn_commit_latency')
-            plt.plot(THREAD_CNT_nparray, nowait_nowarmup_txn_commit_latency_y, label='unwarmed_up_txn_commit_latency')
-            print("READ_PERC=",str(READ_PERC),", ZIPF_THETA=",str(ZIPF_THETA))
-            print("warmed_up_txn_cnt=",warmed_up_txn_cnt)
-            print("unwarmed_up_txn_cnt=",unwarmed_up_txn_cnt)
-            print("\n\n")
-
-            # ax = fig.add_subplot(111)
-            # for i in nowait_warmup_txn_commit_latency_y:
-            #     ax.annotate('%d' % i, i=i) 
 
             plt.xlabel("THREAD_CNT")
             plt.ylabel(metric_name)
             plt.legend()
             plt.title('ZIPF_THETA='+str(ZIPF_THETA)+'\nREAD_PERC='+str(READ_PERC))
-            plt.savefig('figures/'+metric_name+'/READ_PERC'+str(READ_PERC)+'-ZIPF_THETA'+str(ZIPF_THETA)+'.png')
+            if plot_option == 1:
+                plt.savefig('figures/'+metric_name+'/READ_PERC'+str(READ_PERC)+'-ZIPF_THETA'+str(ZIPF_THETA)+'.png')
+            else:
+                plt.savefig('figures/'+'decomposed_commit_latency/READ_PERC'+str(READ_PERC)+'-ZIPF_THETA'+str(ZIPF_THETA)+'.png')
 

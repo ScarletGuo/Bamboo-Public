@@ -17,6 +17,7 @@
 #include "query.h"
 
 #include <iostream> // heather: debug using print
+#include <immintrin.h>
 
 void ycsb_txn_man::init(thread_t * h_thd, workload * h_wl, uint64_t thd_id) {
     txn_man::init(h_thd, h_wl, thd_id);
@@ -25,7 +26,8 @@ void ycsb_txn_man::init(thread_t * h_thd, workload * h_wl, uint64_t thd_id) {
 
 RC ycsb_txn_man::run_txn(base_query * query) {
     RC rc = RCOK; // heather: initialize rc with a non-Abort value
-    bool aborted = false; // heather: add this variable for WARMUP_NO_WAIT
+    RC rc_return = RCOK; // heather: initialize rc_return with a non-Abort value
+    uint32_t aborted_rid = 0; // heather
     ycsb_query * m_query = (ycsb_query *) query;
     ycsb_wl * wl = (ycsb_wl *) h_wl;
     itemid_t * m_item = NULL;
@@ -64,27 +66,10 @@ RC ycsb_txn_man::run_txn(base_query * query) {
             access_t type = req->rtype;
             //printf("[txn-%lu] start %d requests at key %lu\n", get_txn_id(), rid, req->key);
 
-            // heather: modify the following code block
-#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
-            RC rc_return = WAIT;
-            row_local = get_row(row, type, &rc_return); // heather: add a param called rc_return to get the rc from get_row
-            if (aborted == true || rc_return == Abort) { // if aborted == true, has aborted in some previous round in for-loop
-                aborted = true;
-                // std::cout <<"ycsb_txn.cpp: rc == Abort"<<endl;
-                // TODO: cache data and manager here
-                char * data = row->get_data();
-                volatile Row_lock * manager = row->manager;
-
-                volatile char fval = data[0]; // trying to cache data
-                // std::cout <<"ycsb_txn.cpp: data="<<data<<endl;
-                // __builtin_prefetch((const void*)(prefetch_address),0,0);
-                break; // leave while loop, continue for loop;
-            }  
-#else
             row_local = get_row(row, type);
-#endif
             if (row_local == NULL) {
                 rc = Abort;
+                aborted_rid = rid; // heather: update aborted_rid
                 goto final;
             }
 #if CC_ALG == BAMBOO && (THREAD_CNT != 1)
@@ -128,15 +113,46 @@ RC ycsb_txn_man::run_txn(base_query * query) {
 #endif
         }
     }
-    rc = RCOK;
+    rc = RCOK;  
+final:
+    // TODO option3: modify finish(rc) to do prefetch in it.
+    rc = finish(rc); // heather: it release all locks, after here, prefetch
+
+    // TODO option2: prefetch here.
 #if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
-    if (aborted) {
-        rc = Abort;
+    if (rc == Abort) {
+        txn_warmup(query, aborted_rid);
         this->warmed_up = true;
     }
-#endif   
-final:
-    rc = finish(rc);
+#endif 
     return rc;
 }
 
+#if (CC_ALG == NO_WAIT) && WARMUP_NO_WAIT
+void ycsb_txn_man::txn_warmup(base_query * query, uint32_t aborted_rid) {
+    ycsb_query * m_query = (ycsb_query *) query;
+    ycsb_wl * wl = (ycsb_wl *) h_wl;
+    itemid_t * m_item = NULL;
+
+    // if long txn and not rerun aborted txn, generate queries
+    if (unlikely(m_query->is_long && !(m_query->rerun))) {
+        uint64_t starttime = get_sys_clock();
+        m_query->gen_requests(h_thd->get_thd_id(), h_wl);
+        DEC_STATS(h_thd->get_thd_id(), run_time, get_sys_clock() - starttime);
+    }
+
+    for (uint32_t rid = aborted_rid; rid < m_query->request_cnt; rid ++) {
+        ycsb_request * req = &m_query->requests[rid];
+        int part_id = wl->key_to_part( req->key );
+
+        m_item = index_read(_wl->the_index, req->key, part_id);
+        row_t * row = ((row_t *)m_item->location);
+        
+        char * data = row->get_data();
+        Row_lock * manager = row->manager;
+
+        _mm_prefetch((const char*) data, _MM_HINT_NTA);
+        _mm_prefetch((const char*) manager, _MM_HINT_NTA);
+    }
+}
+#endif
